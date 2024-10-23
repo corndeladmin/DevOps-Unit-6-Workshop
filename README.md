@@ -10,43 +10,48 @@ The objectives for today are:
 - Become comfortable using configuration management tools to provision virtual machines
 
 ## Pre-flight checks
-Today we'll be using SSH to connect to a virtual machine, operate it remotely using command-line tools, perform some setup that you might need to do in order to facilitate features in a real-world scenario, and then use Ansible to automate that setup.
+Today we'll be using SSH to connect to a virtual machine, operate it remotely using command-line tools, perform some setup on that virtual machine - representative of setup you might need to perform as part of enabling various features you might want in your application in a real-world scenario, and then use Ansible to automate that setup.
 
-The virtual machines we're going to be working with are going to be spun up using a tool called CloudFormation. This is an AWS tool that lets you specify resources and infrastructure you want using a YAML file, and CloudFormation will take this YAML file and create the resources for you. Sound familiar? That's right, it's infrastructure as code in action! 
+The virtual machines we're going to be working with are going to be spun up using a tool called CloudFormation. This is an AWS tool that lets you specify resources and infrastructure you want using a YAML file. This YAML file describes the things you want, and CloudFormation will take this YAML file and create the resources for you. Sound familiar? That's right, it's *infrastructure as code* in action! 
 
-That said, we won't look in too much detail at the CloudFormation template we'll be deploying - it involves a lot of cloud specific infrastructural concepts that we haven't covered yet. This preamble is mostly to explain that the bulk of the technical stuff that'll happen today will be happening on remote virtual machines, and in order for you to participate you'll only need:
+That said, we won't look in too much detail yet at the CloudFormation template we'll be deploying - it involves a few cloud specific concepts that we haven't covered yet. This preamble is mostly to explain that the bulk of the technical stuff that'll happen today will be happening on remote virtual machines, and in order for you to complete this workshop you'll only need:
 - A terminal with the ability to SSH into an EC2 VM (you could use the ACG terminal if needed)
 - An ACG account to spin up an AWS sandbox with (or an AWS account you're happy to create resources in)
 
 ### Using SSH
-If you haven't yet done so, you should make sure you have created SSH keys and are able to use them to connect to a remote machine. Try creating an ACG cloud server and SSHing into it!
+If you haven't yet done so, you should make sure you have created SSH keys and are able to use them to connect to a remote machine (or if you are unable to, that you are happy to use an alternative like ACG terminal). Try creating an ACG cloud server and SSHing into it!
 
 Github has a comprehensive guide for all major operating systems: [Connecting to Github with SSH](https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh)
 
-## Morning
+## Morning (Part 1)
 
 ### Setting up the environment
-- We're going to start by spinning up some virtual machines using CloudFormation.
+We're going to start by spinning up our workshop's virtual machines using CloudFormation.
 - Log into your ACG account and create an AWS cloud sandbox.
-- Using an incognito window and the credentials provided, log into your AWS cloud sandbox and navigate to the CloudFormation service.
-- The CloudFormation service has a "Create stack" button. Click this and upload the `chimera-cloudformation-template.yaml` file from this repository. Clone this repo locally to your machine first if that's easier. 
-- The template will ask you for a few parameters. You can leave these as default, but you'll need to specify a name and resource key - these can be an alphanumeric string of your choice, something like "my-unit-4-workshop" is sufficient, for example. You also have the opportunity to choose the password you want the virtual macine user to be configured with.
-- Follow the prompts to create the stack. This will take a few minutes.
-- After a bit, the progress of the stack creation will change from "CREATE_IN_PROGRESS" to "CREATE_COMPLETE". At this point, you can click on it, click on the "Outputs" tab, and you'll see a URL. This URL will take you to a page that shows you the IP addresses of the virtual machines you've just created.
-- This page should show you an IP address for Part 1, and 2 IP addresses for Part 2. You can SSH into these machines using the username `ec2-user` and the password you specified when creating the stack. Try SSHing into the virtual machine for Part 1. If you're successful, you've completed the setup!
+- Using an incognito window and the credentials provided, log into your AWS cloud sandbox and navigate to the CloudFormation service. You can do this by clicking in the giant search box at the top of the AWS console and typing "CloudFormation".
+- The CloudFormation service has a "Create stack" button. Click this and upload the `chimera-cloudformation-template.yml` file from this repository. You can clone this repo locally to your machine first if that's your preferred way of getting this file on your machine. 
+  - After this workshop, it might be worth having a quick look through this file - just to get a bit of an idea how the structure of YAML helps describe resources, and to see how much of it you think you can understand, or make educated guesses at how it works. 
+- The template will ask you for a few parameters. You can leave these as default, but you'll need to specify a name and resource key - these can be an alphanumeric string of your choice, something like "my-unit-6-workshop" is sufficient, for example. If you like, you can choose the password you'd like the virtual machine user to be configured with. Either way, make a note of the password before proceeding.
+- Follow the prompts to create the stack. You don't need to make any further changes. 
+- Once you've started, you'll be taken to a list of "stacks", where you should be able to see the new one you created, labelled with "CREATE_IN_PROGRESS". This process will take a few minutes, so it's not a bad time to make a cup of tea! Normally it should take a bit less than 5 minutes. If it takes more than 10, you should consider trying again by creating a new stack. You can click the refresh button in the "Events" tab to see the progress of the stack creation.
+- After a bit, the progress of the stack creation will change from "CREATE_IN_PROGRESS" to "CREATE_COMPLETE". At this point, you want to navigate to the list of EC2 instances that exist, so that you can find out what's been created, and what their IP addresses are. Use the AWS console search box at the top to navigate to EC2.
+- The EC2 dashboard should show "Instances (running): 3" and "Auto Scaling Groups: 2" amongst other pieces of information. We want to see a list of our EC2 instances, so click on "Instances (running)".
+- You should see a list of 3 EC2 instances, 1 of which belongs to Part 1 of this workshop, and 2 of which belong to Part 2. By clicking on any of them, you'll see a panel that provides lots of information about them - including their IP address (you're looking for "Public IPv4 address"). You want to make a note of the IP addresses for each of these machines - note down the IP address for your Part 1 VM, as well as the 2 IP addresses for your Part 2 VMs.
+- Let's test these VMs! Open your terminal and try doing `ping 100.100.100.100` (except use the IP address for your Part 1 VM instead of 100.100.100.100) - this command sends out packets to the VM that the VM should respond to, and by getting these responses, you learn (1) that the VM is awake and connected to the internet, and (2) from how long it took the VM to respond, you know something about the quality of your network performance between your computer and the VM, or something about how far away it is (as a rule of thumb, pinging equipment inside your own network should be sub-10ms, pinging servers inside Europe should be a 2 digit number of milliseconds, and pinging across the Atlantic to the US will likely take at least 100ms).
 
 ### SSH to your VM
 
-* You should have been provided with a **hostname** for a remote VM and some **credentials**.
-* Use these credentials to connect to your VM over ssh.
+You now have a virtual machine for Part 1. In order to connect to this VM, you'll need (1) credentials, and (2) a hostname or IP address. Fortunately, you noted down the IP address of your VM, and the password that you chose for it (unless you left it at the default) was specified at the time you created the CloudFormation stack. 
+- In addition to those, we can tell you that the username you can connect to the VMs with is `ec2-user`.
+- Use these credentials to connect to your VM over ssh.
 
 ```bash
   ssh user@hostname
 ```
 
-You should now be connected to the remote VM. Try a few simple shell commands to confirm you're connected.
+You should now be connected to the remote VM. Try a few simple shell commands to confirm you're connected (`pwd`, `ls /`, `uname -a` for example).
 
-The preferred method of connecting is with SSH keys. This removes the need to provide a username and password every time, is more secure and is easier to administrate.
+The preferred method of connecting is actually with SSH keys. This removes the need to provide a username and password every time, is more secure and is easier to administrate. Let's learn how to do this now.
 
 If you don't have an SSH key you can set one up following [this guide](https://docs.github.com/en/github/authenticating-to-github/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent#generating-a-new-ssh-key)
 
@@ -60,13 +65,17 @@ You should add your **public key** on a new line of the `authorized_keys` file o
 vim ~/.ssh/authorized_keys
 ```
 
-> How to edit and save a file with `vim`:  
+> Reminder: How to edit and save a file with `vim`:  
 > - You start in **Command mode** and cannot simply type text, though you can still paste from the clipboard, with `Shift + Insert`.  
 > - Press `i` to enter **Insert mode** to type text. Press `Escape` to return to **Command mode**.  
 > - From Command mode you can save & exit by typing `:wq` and then pressing `Enter`.
 
 ### Getting started with Chimera
-The VM has a (partially) working version of Chimera on it. If you navigate to the URL provided by your trainer you should be able to see the page it produces. The `webapp` part appears to be functioning correctly, so you should leave it alone.
+This workshop revolves around fixing up a tool called Chimera, which comprises a web application and a command line tool. The web application displays data on a map, and the command line tool generates datasets for the web application to display.
+The VM has a (partially) working version of Chimera on it.
+There is pre-existing data that you should be able to find if
+You can see this data by visiting the website that is hosted by the web app. Simply go to your web browser, and navigate to the URL `http://100.100.100.100` (except with your Part 1 VM's IP address rather than 100.100.100.100). Make sure you use `HTTP` and not `HTTPS` (i.e. no `s` before the `://` in the URL)! Your web browser will find and connect to the virtual machine with that IP address, ask for the webpage, and return it to you and render it.
+If you navigate to this URL, you should be able to see the page it produces. This page should say "Chimera Reporting Server" at the top with a world map taking up most of the page. The `webapp` part appears to be functioning correctly, so let's focus on the other part of Chimera - the command line app.
 
 On the VM you should be able to find `cliapp`. This is a command line program with minimal documentation (see [cliapp_reference.md](./cliapp_reference.md)). Its purpose is to generate "datasets" for the webapp to display. You should be able to run it like so:
 
@@ -128,7 +137,7 @@ We want to use [USGS](https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.
 * Use `>` to direct the output of a command to a file. E.g. `echo "something" > output.txt`
 
 <details>
-<summary>If you are really stuck, expand this for more detailed help.</summary>
+<summary>If you're interested in experimenting with jq and working with this dataset, you can take on this task by yourself by looking at the jq documentation in order to build the right command. Otherwise, or if you get stuck, you can open this panel to receive hints, or the answer.</summary>
 
 Read your json file and feed it into jq:
 
@@ -176,16 +185,16 @@ cat earthquakes.json | jq -r '.features[] | "\(.geometry.coordinates[1])|\(.geom
 </details>
 <br>
 
-When you've worked out the correct commands, put them in a bash script. This can simply be a text file containing your commands. but the file extension should be `.sh`.
+When you have a working command, put it in a bash script. This can simply be a text file containing your commands. but the file extension should be `.sh`.
 
-> You will often see a "shebang" such as `#!/bin/bash -e` as the first line in a .sh file. This explicitly specifies what should run the file, and the `-e` is a useful option that means the script will exit if any command exits with an error
+> You will often see a "shebang" such as `#!/bin/bash -e` as the first line in a .sh file. This explicitly specifies what should run the file, and the `-e` is a useful option that means the script will exit if any command exits with an error.
 
 Make it executable (run `chmod +x your_script.sh`) and then try executing it (run `./your_script.sh`) to check it works. The script should:
 * Fetch fresh data
 * Convert it to the correct format
 * Use `cliapp` to generate a dataset that the web app can display.
 
-### Automation Part 1
+### Automation: Stage 1
 
 When you've written your script we need to automate executing it. You'll want to use `crontab` to call the script on a schedule.
 
@@ -195,8 +204,9 @@ A summary of crontab and some tips:
 * Each line is a job, consisting of a cron expression (i.e. when it should run) followed by a shell command to run.
 * Each user has their own crontab. It will execute as them, and in their home directory.
 * An important difference between the cronjob execution and running the command yourself in bash is that the cronjob will not have run the `~/.bash_profile` file beforehand, which sets up some important environment variables.
-* You can experiment with the meaning of cron expressions [here](https://crontab.guru/)
+* You can experiment with the meaning of cron expressions [here](https://crontab.guru/).
 * You might be wondering how to check the output of your cron jobs. After it runs, and you next interact with the terminal, you will see a message in the terminal saying "You have new mail" and a filepath. You can read the file with `cat` or `tail`. E.g. `cat /var/spool/mail/ec2-user`.
+
 <details><summary><b>Troubleshooting Hints for Crontab</b></summary>
 
 If you're not seeing your cronjob succeeding, do you know if it's running at all?
@@ -239,9 +249,9 @@ We've got some requirements from the CEO:
 
 When you think your cronjob is working, check! Either look at the "dataset generated" timestamp on the website, or check the logs in `/var/spool/mail/ec2-user`.
 
-## Afternoon
+## Afternoon (Part 2)
 
-*If you haven't finished "Data Manipulation" yet, do so before starting the next steps*
+*If you haven't finished the "Data Manipulation" step yet, do so before starting the next steps - use the provided `jq` command to proceed*
 
 ### Scaling up
 
@@ -253,10 +263,10 @@ We need to scale up!
 We're going to set up two more VMs so we can share the website traffic between them.  
 For this exercise, we're going to focus on setting up the new VMs. We won't deal with how to share the traffic between them.
 
-You should have been provided with **hostnames** for the two new VMs.  
+You should have **hostnames** (IP addresses) for the two new VMs. These are the 2 VMs for Part 2 that we saw in the list of EC2 instances earlier. 
 The credentials to log in are the same as for your first VM.
 
-Now, we *could* set up these VMs by SSHing into them and running some commands.  
+Now, we *could* set up these VMs by SSHing into them and running some commands, like we did with the first VM in the morning. 
 But, instead we're going to use Ansible.  
 
 ### Why Ansible?
@@ -282,12 +292,12 @@ Ansible needs two machines (either physical machines or VMs) to run:
 * **Managed nodes**  
   The servers you manage with Ansible. Managed nodes are also sometimes called “hosts”. Ansible is not installed on managed nodes. They only need a way for the control node to connect (e.g. SSH). Most operations require Python but Ansible can use the "raw module" to install Python itself.
 
-We've given you 3 VMs: the 1 original VM and the 2 new VMs.  
-Control Node: Use the original VM as the Control Node.  
+This morning, you created 3 VMs: the 1 original VM and the 2 new VMs.  
+Control Node: Use the original VM for Part 1 as the Control Node.  
 Managed Nodes: Use the 2 new VMs as the Managed Nodes.
 
-If you use Mac or Linux, you can choose to use your own computer as the Control Node (you'll need to install Ansible on it first).  
-If you use Windows, you'll have to use the original VM or your own VM as the Control Node, since Ansible doesn't run on Windows.
+If you use Mac or Linux, you can even choose to use your own computer as the Control Node instead (you'll need to install Ansible on it first).  
+If you use Windows, you'll have to use the original VM (or some other VM you may happen to have) as the Control Node, since Ansible doesn't run on Windows.
 
 ### **Let's get going**
 
@@ -855,7 +865,7 @@ Try to visit the hostname (or public IP address) of your managed nodes and you s
 
 You've done the core part of the exercise so feel free to pick and choose stretch goals that interest you more.
 
-### Ansible Part 2
+### Ansible: Further Steps
 
 You now have the **webapp** running on the 2 new VMs but not with any real data. Let's fix that, but note the cronjob to generate datasets is **not** something we want to scale in the same way: we want the same datasets available on all of the replica webservers. So the data processing job should only run once. Then after it generates datasets, Ansible can synchronise the data folder from that machine with any other webservers.
 
@@ -893,7 +903,7 @@ Add a second play to your original playbook. It should target the control node i
 
 </details>
 
-### Automation Part 2
+### Automation: Stage 2
 
 The CEO has come back with some more requirements for you.
 
@@ -911,6 +921,8 @@ If you run `cliapp --help` you'll see lots of different options that can be pass
 Can you work out what they do and complete the documentation?
 
 ### Create an API
+
+We only suggest this stretch goal if you would particularly like more experience creating APIs, and provoking thoughts about API design.
 
 While command line programs are very useful in certain circumstances they do have their limitations. We would like to create an API that makes the data produced by `cliapp` available as JSON, rather than through the rather clunky `webapp`.
 

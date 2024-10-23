@@ -1,0 +1,242 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Auto-create VPC, Subnets, KeyPair, and Lambda-backed resource for the workshop"
+Metadata: {}
+
+Parameters:
+  ResourcePrefix:
+    Type: String
+    Description: Prefix for AWS Resources
+
+  NumberOfAnsibleControllerInstances:
+    Type: Number
+    Description: Number of EC2 instances to generate for Ansible HOSTS
+    Default: 1
+
+  NumberOfManagedNodeInstances:
+    Type: Number
+    Description: Number of EC2 instances to generate for Ansible NODES
+    Default: 2
+
+  WebAppPort:
+    Type: Number
+    Description: Port to serve the WebApp over
+    Default: 80
+
+  SSHPassword:
+    Type: String
+    Description: Default SSH Password
+    Default: ChimeraPass
+
+Mappings: {}
+
+Conditions: {}
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ResourcePrefix}_VPC"
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${ResourcePrefix}_InternetGateway"
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ResourcePrefix}_Public_Route_Table"
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ResourcePrefix}_Public_Subnet"
+
+  KeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: !Sub "${ResourcePrefix}_KeyPair"
+
+  Module4WorkshopAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub "${ResourcePrefix}_Command_Line_AutoScalingGroup"
+      VPCZoneIdentifier:
+        - !Ref PublicSubnet
+      LaunchConfigurationName: !Ref Module4WorkshopLaunchConfiguration
+      MaxSize: !Ref NumberOfAnsibleControllerInstances
+      MinSize: !Ref NumberOfAnsibleControllerInstances
+      Tags:
+        - Key: Name
+          PropagateAtLaunch: True
+          Value: !Sub "${ResourcePrefix}_Command_Line_Workshop_Part_1"
+
+  Module4WorkshopAutoScalingGroupManagedNode:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub "${ResourcePrefix}_Command_Line_AutoScalingGroup_AnsibleNode"
+      VPCZoneIdentifier:
+        - !Ref PublicSubnet
+      LaunchConfigurationName: !Ref Module4WorkshopLaunchConfigurationManagedNode
+      MaxSize: !Ref NumberOfManagedNodeInstances
+      MinSize: !Ref NumberOfManagedNodeInstances
+      Tags:
+        - Key: Name
+          PropagateAtLaunch: True
+          Value: !Sub "${ResourcePrefix}_Command_Line_Workshop_Part_2_Managed_Node"
+
+  Module4WorkshopLaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      LaunchConfigurationName: !Sub "${ResourcePrefix}_Command_Line_Workshop_Launch_Configuration"
+      IamInstanceProfile: !Ref Module4WorkshopInstanceProfile
+      ImageId: ami-06b21ccaeff8cd686 # Replace with a valid AMI ID in your region
+      InstanceMonitoring: false
+      InstanceType: t3.nano
+      KeyName: !Ref KeyPair
+      SecurityGroups:
+        - Ref: Module4WorkshopInstanceSecurityGroup
+      UserData:
+        Fn::Base64: 
+          !Sub |
+            #!/bin/bash -ex
+            exec > /tmp/userdata.log 2>&1
+            # Install pip and then ansible
+            sudo yum install pip -y
+            # Ansible install will sometimes fail due to lack of memory
+            sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
+            sudo mkswap /swapfile
+            sudo chmod 600 /swapfile
+            sudo swapon /swapfile
+            sudo pip install ansible
+            # Make logging directory
+            mkdir /var/log/chimera
+            chmod +777 /var/log/chimera
+            # Enable password login (with given password)
+            sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+            sudo usermod --password $(echo ${SSHPassword} | openssl passwd -1 -stdin) ec2-user
+            sudo service sshd restart
+            yum install -y jq
+            mkdir -p /opt/chimera/bin
+            pushd /opt/chimera/bin
+            curl --fail https://devops-cli-workshop.s3.eu-west-2.amazonaws.com/cliapp --output cliapp
+            chmod +x cliapp
+            curl --fail https://devops-cli-workshop.s3.eu-west-2.amazonaws.com/webapp --output webapp
+            chmod +x webapp
+            curl --fail https://devops-cli-workshop.s3.eu-west-2.amazonaws.com/start-webapp.sh --output start-webapp.sh
+            curl --fail https://devops-cli-workshop.s3.eu-west-2.amazonaws.com/webapp.service --output webapp.service
+            popd
+            pushd /home/ec2-user
+            echo "PATH=\$PATH:/opt/chimera/bin" >> .bashrc
+            echo "export PATH" >> .bashrc
+            echo "export DATA_FOLDER=/opt/chimera/data" >> .bashrc
+            popd
+            export PATH=$PATH:/opt/chimera/bin
+            export DATA_FOLDER=/opt/chimera/data
+            mkdir /opt/chimera/data
+            chmod +777 /opt/chimera/data
+            curl --fail https://devops-cli-workshop.s3.eu-west-2.amazonaws.com/father-roar-little --output /opt/chimera/data/father-roar-little
+            export WEBAPP_PORT=${WebAppPort}
+            nohup webapp &
+
+  Module4WorkshopLaunchConfigurationManagedNode:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      LaunchConfigurationName: !Sub "${ResourcePrefix}_Command_Line_Workshop_Launch_Configuration_AnsibleNode"
+      IamInstanceProfile: !Ref Module4WorkshopInstanceProfile
+      ImageId: ami-06b21ccaeff8cd686 # Replace with a valid AMI ID in your region
+      InstanceMonitoring: false
+      InstanceType: t3.nano
+      KeyName: !Ref KeyPair
+      SecurityGroups:
+        - Ref: Module4WorkshopInstanceSecurityGroup
+      UserData:
+        Fn::Base64: 
+          !Sub |
+            #!/bin/bash -ex
+            exec > /tmp/userdata.log 2>&1
+            # Enable password login (with given password)
+            sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+            sudo usermod --password $(echo ${SSHPassword} | openssl passwd -1 -stdin) ec2-user
+            sudo service sshd restart
+
+  Module4WorkshopInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub "${ResourcePrefix}_Command_Line_Workshop_Instance_Profile"
+      Roles:
+        - !Ref Module4WorkshopInstanceRole
+
+  Module4WorkshopInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ResourcePrefix}_Command_Line_Workshop_Instance_Role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+
+  Module4WorkshopInstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${ResourcePrefix}_Command_Line_Workshop_Security_Group"
+      GroupDescription: EC2 Instance Security Group
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 1024
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: !Ref WebAppPort
+          ToPort: !Ref WebAppPort
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref VPC
+
+Outputs: {}
