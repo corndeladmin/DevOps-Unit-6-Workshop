@@ -18,6 +18,9 @@ That said, we won't look in too much detail yet at the CloudFormation template w
 - A terminal with the ability to SSH into an EC2 VM (you could use the ACG terminal if needed)
 - An ACG account to spin up an AWS sandbox with (or an AWS account you're happy to create resources in)
 
+> If you're using an ACG account please don't forget that your AWS account automatically gets cleaned up after 4 hours. 
+> You can extend its lifespan 1 hour before cleanup from the cloud sandboxes page (it might be worth setting an alarm for this!).
+
 ### Using SSH
 If you haven't yet done so, you should make sure you have created SSH keys and are able to use them to connect to a remote machine (or if you are unable to, that you are happy to use an alternative like ACG terminal). Try creating an ACG cloud server and SSHing into it!
 
@@ -58,6 +61,8 @@ If you don't have an SSH key you can set one up following [this guide](https://d
 * Only follow the "Generating a new SSH key" section
 * For the purposes of the workshop we suggest you do not use a password on your key (leave it blank)
 
+You should add both your **public and private keys** to your `~/.ssh` folder (the `ssh-keygen` CLI tool will do this by default).
+
 You should add your **public key** on a new line of the `authorized_keys` file on the remote VM.
 
 ```bash
@@ -70,12 +75,21 @@ vim ~/.ssh/authorized_keys
 > - Press `i` to enter **Insert mode** to type text. Press `Escape` to return to **Command mode**.  
 > - From Command mode you can save & exit by typing `:wq` and then pressing `Enter`.
 
+Once this complete try disconnecting and reconnecting to the VM over SSH (if you are not prompted for a password you know it has worked!).
+
 ### Getting started with Chimera
 This workshop revolves around fixing up a tool called Chimera, which comprises a web application and a command line tool. The web application displays data on a map, and the command line tool generates datasets for the web application to display.
+
 The VM has a (partially) working version of Chimera on it.
 There is pre-existing data that you should be able to find if
-You can see this data by visiting the website that is hosted by the web app. Simply go to your web browser, and navigate to the URL `http://100.100.100.100` (except with your Part 1 VM's IP address rather than 100.100.100.100). Make sure you use `HTTP` and not `HTTPS` (i.e. no `s` before the `://` in the URL)! Your web browser will find and connect to the virtual machine with that IP address, ask for the webpage, and return it to you and render it.
-If you navigate to this URL, you should be able to see the page it produces. This page should say "Chimera Reporting Server" at the top with a world map taking up most of the page. The `webapp` part appears to be functioning correctly, so let's focus on the other part of Chimera - the command line app.
+You can see this data by visiting the website that is hosted by the web app. Simply go to your web browser, and navigate to the URL `http://100.100.100.100` (except with your Part 1 VM's IP address rather than 100.100.100.100). 
+
+> Make sure you use `HTTP` and not `HTTPS` (i.e. no `s` before the `://` in the URL)! 
+
+Your web browser will find and connect to the virtual machine with that IP address, ask for the webpage, and return it to you and render it.
+If you navigate to this URL, you should be able to see the page it produces. This page should say "Chimera Reporting Server" at the top with a world map taking up most of the page. 
+
+The `webapp` part appears to be functioning correctly, so let's focus on the other part of Chimera - the command line app.
 
 On the VM you should be able to find `cliapp`. This is a command line program with minimal documentation (see [cliapp_reference.md](./cliapp_reference.md)). Its purpose is to generate "datasets" for the webapp to display. You should be able to run it like so:
 
@@ -242,7 +256,7 @@ In particular, the following may be of assistance:
 
 We've got some requirements from the CEO:
 
-* A dataset should be generated every five minutes, containing earthquakes in the last hour. It should be displayed on the site at `/latest`. <details><summary>Hint</summary> Use the --dataset-name option mentioned in the [cliapp_reference.md](./cliapp_reference.md) to specify a dataset name of "latest".</details>
+* A dataset should be generated every five minutes, containing earthquakes in the last hour. It should be displayed on the site at `/latest`. <details><summary>Hint</summary> Use the `--dataset-name` option mentioned in the [cliapp_reference.md](./cliapp_reference.md) to specify a dataset name of "latest".</details>
 * The same data should also be available with a dataset name containing the date and time it was generated. <details><summary>Hint</summary>Use the `date` command. E.g. `date +"%y"` would give you the year.</details>
 * Any datasets older than 24 hours should be automatically deleted. More recent ones should be kept accessible. <details><summary>Hint</summary>Use the `find` command on the folder containing the datasets. It has options to filter by date/time last modified, and an option to delete the files it finds. The `DATA_FOLDER` environment variable will tell you where the datasets are stored.</details>
 <br>
@@ -251,7 +265,7 @@ When you think your cronjob is working, check! Either look at the "dataset gener
 
 ## Afternoon (Part 2)
 
-*If you haven't finished the "Data Manipulation" step yet, do so before starting the next steps - use the provided `jq` command to proceed*
+*If you haven't finished the "Data Manipulation" step yet, do so before starting the next steps - use the provided `jq` command in the hints there to proceed*
 
 ### Scaling up
 
