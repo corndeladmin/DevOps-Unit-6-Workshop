@@ -211,7 +211,11 @@ Make it executable (run `chmod +x your_script.sh`) and then try executing it (ru
 ### Automation: Stage 1
 
 When you've written your script we need to automate executing it. You'll want to use `crontab` to call the script on a schedule.
-
+> The VMs do not come with `crontab` installed so you'll need to install & setup crontab with the commands:
+> ```
+> sudo yum install cronie cronie-anacron
+> sudo service crond restart
+>```
 A summary of crontab and some tips:
   
 * Use `crontab -e` to edit the crontab, which is simply a file listing scheduled jobs. This will open the file in `vim`.
