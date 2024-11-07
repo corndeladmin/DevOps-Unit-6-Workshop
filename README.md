@@ -75,7 +75,7 @@ vim ~/.ssh/authorized_keys
 > - Press `i` to enter **Insert mode** to type text. Press `Escape` to return to **Command mode**.  
 > - From Command mode you can save & exit by typing `:wq` and then pressing `Enter`.
 
-Once this complete try disconnecting and reconnecting to the VM over SSH (if you are not prompted for a password you know it has worked!).
+Once this is complete try disconnecting and reconnecting to the VM over SSH (if you are not prompted for a password you know it has worked!).
 
 ### Getting started with Chimera
 This workshop revolves around fixing up a tool called Chimera, which comprises a web application and a command line tool. The web application displays data on a map, and the command line tool generates datasets for the web application to display.
